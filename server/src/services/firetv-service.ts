@@ -123,7 +123,7 @@ export class FireTVService {
   async isConnected(): Promise<boolean> {
     try {
       const { stdout } = await this.adb('devices');
-      return stdout.includes(this.deviceId) && stdout.includes('device\n');
+      return stdout.includes(`${this.deviceId}\tdevice`);
     } catch {
       return false;
     }
