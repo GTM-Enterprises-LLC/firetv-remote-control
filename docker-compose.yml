@@ -3,23 +3,22 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    ports:
-      - "3001:3001"
+    network_mode: host
     environment:
       - FIRETV_IP=${FIRETV_IP}
-      - PORT=3001
+      - PORT=3003
       - CORS_ORIGIN=*
       - NODE_ENV=production
-    volumes:
-      - ${HOME}/.android:/root/.android:ro
     restart: unless-stopped
 
   ui:
     build:
       context: ui
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
+      args:
+        - VITE_BASE_PATH=/firetv/
+        - VITE_API_URL=/firetv/api/v1
+    network_mode: host
     depends_on:
       - server
     restart: unless-stopped
