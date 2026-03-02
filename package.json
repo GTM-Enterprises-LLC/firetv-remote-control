@@ -1,21 +1,16 @@
 {
   "name": "firetv-remote",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
-  "author": {
-    "name": "Zane Helton",
-    "email": "zane99@me.com"
-  },
+  "workspaces": [
+    "server",
+    "ui"
+  ],
   "scripts": {
-    "start": "node ./bin/www"
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=ui\"",
+    "build": "npm run build --workspace=server && npm run build --workspace=ui"
   },
-  "dependencies": {
-    "body-parser": "~1.20.2",
-    "cookie-parser": "~1.3.4",
-    "express": "~4.18.2",
-    "debug": "~2.6.9",
-    "jade": "~1.9.2",
-    "morgan": "~1.10.0",
-    "serve-favicon": "~2.5.0"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

@@ -1,0 +1,21 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    network_mode: host
+    environment:
+      - FIRETV_IP=${FIRETV_IP}
+      - PORT=3001
+      - CORS_ORIGIN=*
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ui
+      dockerfile: Dockerfile
+    network_mode: host
+    depends_on:
+      - server
+    restart: unless-stopped
