@@ -7,12 +7,14 @@ export default function Header() {
   const [showSettings, setShowSettings] = useState(false);
   const [inputIp, setInputIp] = useState('');
 
+  const toggleSettings = () => {
+    if (!showSettings) setInputIp(deviceIp || '');
+    setShowSettings((v) => !v);
+  };
+
   const handleSave = async () => {
-    if (inputIp.trim()) {
-      await updateConfig(inputIp.trim());
-      setShowSettings(false);
-      setInputIp('');
-    }
+    await updateConfig(inputIp.trim() || deviceIp);
+    setShowSettings(false);
   };
 
   return (
@@ -29,7 +31,7 @@ export default function Header() {
             <span className="text-xs text-gray-400">{isConnected ? deviceIp : 'disconnected'}</span>
           </div>
           <button
-            onClick={() => setShowSettings((v) => !v)}
+            onClick={toggleSettings}
             className="text-gray-400 hover:text-white transition-colors"
           >
             {showSettings ? <FiX size={18} /> : <FiSettings size={18} />}
