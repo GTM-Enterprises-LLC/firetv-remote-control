@@ -2,8 +2,11 @@ import { exec as execCb } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { sendMagicPacket } from './wol';
 
 const exec = promisify(execCb);
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const FIRETV_KEYS: Record<string, number> = {
   up: 19,
@@ -100,7 +103,7 @@ export class FireTVService {
   private deviceId: string;
   private adbPath: string;
 
-  constructor(private ip: string) {
+  constructor(private ip: string, private mac?: string) {
     this.deviceId = `${ip}:5555`;
     this.adbPath = resolveAdbPath();
   }
@@ -114,6 +117,72 @@ export class FireTVService {
     if (stdout.includes('refused') || stdout.includes('failed')) {
       throw new Error(`ADB connect failed: ${stdout.trim()}`);
     }
+  }
+
+  /**
+   * Resolve the FireTV's MAC address for Wake-on-LAN.
+   * Prefers the configured MAC (FIRETV_MAC), falling back to the OS ARP
+   * table (works when the device is in standby but still associated).
+   */
+  private async resolveMac(): Promise<string | null> {
+    if (this.mac) return this.mac;
+    const macRe = /(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i;
+    for (const cmd of [`ip neigh show ${this.ip}`, `arp -n ${this.ip}`]) {
+      try {
+        const { stdout } = await exec(cmd, { timeout: 3000 });
+        const m = stdout.match(macRe);
+        if (m) return m[0];
+      } catch {
+        // try next lookup strategy
+      }
+    }
+    return null;
+  }
+
+  /** Send a Wake-on-LAN magic packet to bring the FireTV out of standby. */
+  async wake(): Promise<void> {
+    const mac = await this.resolveMac();
+    if (!mac) {
+      throw new Error(
+        `Cannot Wake-on-LAN: MAC for ${this.ip} unknown (set FIRETV_MAC or ensure the device is in the ARP table)`
+      );
+    }
+    console.log(`[FireTV] Sending Wake-on-LAN magic packet to ${mac} (${this.ip})`);
+    await sendMagicPacket(mac);
+  }
+
+  /**
+   * Attempt to connect; if the device is asleep, send a WoL magic packet and
+   * poll for the connection to come up. Returns the final connected state.
+   */
+  async connectWithWake(): Promise<boolean> {
+    try {
+      await this.connect();
+      if (await this.isConnected()) return true;
+    } catch {
+      // device likely asleep — fall through to wake
+    }
+
+    try {
+      await this.wake();
+    } catch (err) {
+      console.warn(`[FireTV] Wake-on-LAN failed: ${(err as Error).message}`);
+    }
+
+    // Poll for the device to wake and accept ADB (~10s budget).
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await delay(2000);
+      try {
+        await this.connect();
+        if (await this.isConnected()) {
+          console.log(`[FireTV] Connected after wake (attempt ${attempt + 1})`);
+          return true;
+        }
+      } catch {
+        // keep polling
+      }
+    }
+    return false;
   }
 
   async disconnect(): Promise<void> {

@@ -6,6 +6,7 @@ dotenv.config({ path: ['.env', '../.env'] });
 const envSchema = z.object({
   PORT: z.string().default('3001').transform(Number),
   FIRETV_IP: z.string().min(1, 'FIRETV_IP is required'),
+  FIRETV_MAC: z.string().optional(),
   CORS_ORIGIN: z.string().default('*'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });

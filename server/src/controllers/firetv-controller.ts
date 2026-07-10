@@ -15,8 +15,9 @@ export class FireTVController {
   };
 
   postConnect = async (_req: Request, res: Response): Promise<void> => {
-    await this.service.connect();
-    const connected = await this.service.isConnected();
+    // Sends a Wake-on-LAN magic packet if the device is asleep, then polls
+    // for ADB to come up before reporting status.
+    const connected = await this.service.connectWithWake();
     this.ok(res, { connected, deviceIp: getConfig().deviceIp });
   };
 

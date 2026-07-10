@@ -13,7 +13,7 @@ app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(express.json());
 app.use(morgan('dev'));
 
-const service = new FireTVService(env.FIRETV_IP);
+const service = new FireTVService(env.FIRETV_IP, env.FIRETV_MAC);
 const controller = new FireTVController(service);
 const router = createRouter(controller);
 
