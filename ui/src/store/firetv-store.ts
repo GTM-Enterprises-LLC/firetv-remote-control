@@ -4,12 +4,14 @@ import type { FireTVDeviceInfo, FireTVNowPlaying } from '../types/api';
 
 interface FireTVStore {
   isConnected: boolean;
+  isConnecting: boolean;
   deviceIp: string;
   deviceInfo: FireTVDeviceInfo | null;
   nowPlaying: FireTVNowPlaying | null;
   isExecuting: boolean;
   error: string | null;
 
+  connect: () => Promise<void>;
   fetchStatus: () => Promise<void>;
   fetchDeviceInfo: () => Promise<void>;
   fetchNowPlaying: () => Promise<void>;
@@ -22,16 +24,39 @@ interface FireTVStore {
 
 export const useFireTVStore = create<FireTVStore>((set, get) => ({
   isConnected: false,
+  isConnecting: false,
   deviceIp: '',
   deviceInfo: null,
   nowPlaying: null,
   isExecuting: false,
   error: null,
 
+  connect: async () => {
+    if (get().isConnecting) return;
+    set({ isConnecting: true });
+    try {
+      const res = await fireTVApi.connect();
+      set({ isConnected: res.data.connected, deviceIp: res.data.deviceIp });
+      if (res.data.connected) {
+        get().fetchDeviceInfo();
+        get().fetchNowPlaying();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Connection failed';
+      set({ isConnected: false, error: msg });
+    } finally {
+      set({ isConnecting: false });
+    }
+  },
+
   fetchStatus: async () => {
     try {
       const res = await fireTVApi.getStatus();
       set({ isConnected: res.data.connected, deviceIp: res.data.deviceIp });
+      // Auto-recover: if the device dropped off (TV asleep, network blip), reconnect.
+      if (!res.data.connected) {
+        get().connect();
+      }
     } catch {
       set({ isConnected: false });
     }

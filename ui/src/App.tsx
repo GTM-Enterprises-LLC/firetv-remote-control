@@ -6,12 +6,11 @@ import RemoteControl from './components/RemoteControl/RemoteControl';
 import NowPlaying from './components/NowPlaying';
 
 function App() {
-  const { fetchStatus, fetchDeviceInfo, fetchNowPlaying } = useFireTVStore();
+  const { connect, fetchStatus, fetchNowPlaying } = useFireTVStore();
 
   useEffect(() => {
-    fetchStatus();
-    fetchDeviceInfo();
-    fetchNowPlaying();
+    // Auto-connect on page load; connect() fetches device info + now-playing on success.
+    connect();
 
     const statusInterval = setInterval(fetchStatus, 10000);
     const nowPlayingInterval = setInterval(fetchNowPlaying, 5000);
@@ -20,7 +19,7 @@ function App() {
       clearInterval(statusInterval);
       clearInterval(nowPlayingInterval);
     };
-  }, [fetchStatus, fetchDeviceInfo, fetchNowPlaying]);
+  }, [connect, fetchStatus, fetchNowPlaying]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">

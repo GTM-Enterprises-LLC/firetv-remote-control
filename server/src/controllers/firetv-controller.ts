@@ -14,6 +14,12 @@ export class FireTVController {
     this.ok(res, { connected, deviceIp: getConfig().deviceIp });
   };
 
+  postConnect = async (_req: Request, res: Response): Promise<void> => {
+    await this.service.connect();
+    const connected = await this.service.isConnected();
+    this.ok(res, { connected, deviceIp: getConfig().deviceIp });
+  };
+
   getConfig = async (_req: Request, res: Response): Promise<void> => {
     this.ok(res, getConfig());
   };

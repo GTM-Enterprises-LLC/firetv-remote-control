@@ -14,6 +14,9 @@ export const fireTVApi = {
   getStatus: () =>
     http.get<ApiResponse<StatusData>>('/status').then((r) => r.data),
 
+  connect: () =>
+    http.post<ApiResponse<StatusData>>('/connect').then((r) => r.data),
+
   getDeviceInfo: () =>
     http.get<ApiResponse<FireTVDeviceInfo>>('/device-info').then((r) => r.data),
 
