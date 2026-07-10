@@ -2,7 +2,6 @@ import { exec as execCb } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { sendMagicPacket } from './wol';
 
 const exec = promisify(execCb);
 
@@ -103,83 +102,62 @@ export class FireTVService {
   private deviceId: string;
   private adbPath: string;
 
-  constructor(private ip: string, private mac?: string) {
+  constructor(private ip: string) {
     this.deviceId = `${ip}:5555`;
     this.adbPath = resolveAdbPath();
   }
 
-  private adb(args: string): Promise<{ stdout: string; stderr: string }> {
-    return exec(`${this.adbPath} ${args}`, { timeout: 8000 });
-  }
-
-  async connect(): Promise<void> {
-    const { stdout } = await this.adb(`connect ${this.deviceId}`);
-    if (stdout.includes('refused') || stdout.includes('failed')) {
-      throw new Error(`ADB connect failed: ${stdout.trim()}`);
-    }
+  private adb(args: string, timeout = 8000): Promise<{ stdout: string; stderr: string }> {
+    return exec(`${this.adbPath} ${args}`, { timeout });
   }
 
   /**
-   * Resolve the FireTV's MAC address for Wake-on-LAN.
-   * Prefers the configured MAC (FIRETV_MAC), falling back to the OS ARP
-   * table (works when the device is in standby but still associated).
+   * Attempt an ADB connect. Returns whether the device is connected afterward.
+   * Uses a short timeout so a sleeping/unreachable device fails fast instead
+   * of hanging (a WiFi-only FireTV silently drops TCP when asleep).
    */
-  private async resolveMac(): Promise<string | null> {
-    if (this.mac) return this.mac;
-    const macRe = /(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i;
-    for (const cmd of [`ip neigh show ${this.ip}`, `arp -n ${this.ip}`]) {
-      try {
-        const { stdout } = await exec(cmd, { timeout: 3000 });
-        const m = stdout.match(macRe);
-        if (m) return m[0];
-      } catch {
-        // try next lookup strategy
-      }
-    }
-    return null;
-  }
-
-  /** Send a Wake-on-LAN magic packet to bring the FireTV out of standby. */
-  async wake(): Promise<void> {
-    const mac = await this.resolveMac();
-    if (!mac) {
-      throw new Error(
-        `Cannot Wake-on-LAN: MAC for ${this.ip} unknown (set FIRETV_MAC or ensure the device is in the ARP table)`
-      );
-    }
-    console.log(`[FireTV] Sending Wake-on-LAN magic packet to ${mac} (${this.ip})`);
-    await sendMagicPacket(mac);
-  }
-
-  /**
-   * Attempt to connect; if the device is asleep, send a WoL magic packet and
-   * poll for the connection to come up. Returns the final connected state.
-   */
-  async connectWithWake(): Promise<boolean> {
+  async connect(): Promise<boolean> {
     try {
-      await this.connect();
-      if (await this.isConnected()) return true;
+      const { stdout } = await this.adb(`connect ${this.deviceId}`, 4000);
+      if (stdout.includes('refused') || stdout.includes('failed')) return false;
     } catch {
-      // device likely asleep — fall through to wake
+      return false;
     }
+    return this.isConnected();
+  }
+
+  /**
+   * Wake the FireTV via the Bravia TV over HDMI-CEC.
+   *
+   * A WiFi-only FireTV can't be woken by Wake-on-LAN (its radio sleeps in
+   * standby). Instead, ask the Bravia app to power the TV on and switch to the
+   * FireTV's HDMI input — the CEC "set stream path" that follows wakes the
+   * FireTV (requires HDMI-CEC / "device control" enabled on the FireTV).
+   * Then poll for ADB to come up.
+   */
+  async wakeViaBravia(): Promise<boolean> {
+    const base = process.env.BRAVIA_API_URL || 'http://localhost:3001/api/v1';
+    const port = process.env.FIRETV_HDMI_PORT;
+    console.log(`[FireTV] Waking via Bravia CEC (power on${port ? ` + HDMI ${port}` : ''}) via ${base}`);
 
     try {
-      await this.wake();
+      await fetch(`${base}/power/on`, { method: 'POST' });
+      await delay(1500);
+      if (port) {
+        await fetch(`${base}/input/hdmi/${port}`, { method: 'POST' });
+      } else {
+        console.warn('[FireTV] FIRETV_HDMI_PORT not set — powering TV on but cannot switch to the FireTV input for CEC wake');
+      }
     } catch (err) {
-      console.warn(`[FireTV] Wake-on-LAN failed: ${(err as Error).message}`);
+      console.warn(`[FireTV] Bravia CEC wake request failed: ${(err as Error).message}`);
     }
 
-    // Poll for the device to wake and accept ADB (~10s budget).
-    for (let attempt = 0; attempt < 5; attempt++) {
+    // Poll for the FireTV to wake via CEC and accept ADB (~12s budget).
+    for (let attempt = 0; attempt < 6; attempt++) {
       await delay(2000);
-      try {
-        await this.connect();
-        if (await this.isConnected()) {
-          console.log(`[FireTV] Connected after wake (attempt ${attempt + 1})`);
-          return true;
-        }
-      } catch {
-        // keep polling
+      if (await this.connect()) {
+        console.log(`[FireTV] Connected after CEC wake (attempt ${attempt + 1})`);
+        return true;
       }
     }
     return false;

@@ -13,7 +13,7 @@ app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(express.json());
 app.use(morgan('dev'));
 
-const service = new FireTVService(env.FIRETV_IP, env.FIRETV_MAC);
+const service = new FireTVService(env.FIRETV_IP);
 const controller = new FireTVController(service);
 const router = createRouter(controller);
 
@@ -23,10 +23,10 @@ app.use(errorHandler);
 app.listen(env.PORT, async () => {
   console.log(`FireTV Remote server running on port ${env.PORT}`);
   console.log(`FireTV IP: ${env.FIRETV_IP}`);
-  try {
-    await service.connect();
-    console.log(`ADB connected to ${env.FIRETV_IP}`);
-  } catch (err) {
-    console.warn(`Could not connect to FireTV at startup: ${(err as Error).message}`);
-  }
+  const connected = await service.connect();
+  console.log(
+    connected
+      ? `ADB connected to ${env.FIRETV_IP}`
+      : `Could not connect to FireTV at startup (device likely asleep/unreachable)`
+  );
 });

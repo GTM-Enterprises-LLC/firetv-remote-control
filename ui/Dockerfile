@@ -7,8 +7,10 @@ ENV VITE_API_URL=$VITE_API_URL
 ARG VITE_BASE_PATH=/
 ENV VITE_BASE_PATH=$VITE_BASE_PATH
 
+# Use the committed lockfile for reproducible builds (npm ci) so the Pi build's
+# dependency versions match local. See ui/package-lock.json.
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build

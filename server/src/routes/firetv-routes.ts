@@ -7,6 +7,7 @@ export function createRouter(controller: FireTVController): Router {
 
   router.get('/status', asyncHandler(controller.getStatus));
   router.post('/connect', asyncHandler(controller.postConnect));
+  router.post('/wake', asyncHandler(controller.postWake));
   router.get('/device-info', asyncHandler(controller.getDeviceInfo));
   router.get('/now-playing', asyncHandler(controller.getNowPlaying));
   router.get('/keys', asyncHandler(controller.getKeys));

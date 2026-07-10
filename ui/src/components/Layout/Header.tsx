@@ -3,7 +3,7 @@ import { FiTv, FiSettings, FiX } from 'react-icons/fi';
 import { useFireTVStore } from '../../store/firetv-store';
 
 export default function Header() {
-  const { isConnected, deviceIp, updateConfig } = useFireTVStore();
+  const { isConnected, isConnecting, deviceIp, updateConfig, wake } = useFireTVStore();
   const [showSettings, setShowSettings] = useState(false);
   const [inputIp, setInputIp] = useState('');
 
@@ -27,9 +27,19 @@ export default function Header() {
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-500'}`} />
-            <span className="text-xs text-gray-400">{isConnected ? deviceIp : 'disconnected'}</span>
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : isConnecting ? 'bg-yellow-400 animate-pulse' : 'bg-red-500'}`} />
+            <span className="text-xs text-gray-400">{isConnected ? deviceIp : isConnecting ? 'connecting…' : 'disconnected'}</span>
           </div>
+          {!isConnected && (
+            <button
+              onClick={() => wake()}
+              disabled={isConnecting}
+              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs
+                         font-medium px-2.5 py-1 rounded-lg transition-colors"
+            >
+              {isConnecting ? 'Waking…' : 'Wake TV'}
+            </button>
+          )}
           <button
             onClick={toggleSettings}
             className="text-gray-400 hover:text-white transition-colors"

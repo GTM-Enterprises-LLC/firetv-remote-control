@@ -9,6 +9,9 @@ services:
       - PORT=3003
       - CORS_ORIGIN=*
       - NODE_ENV=production
+      # Wake the FireTV via the Bravia over HDMI-CEC (WiFi-only can't use WoL)
+      - BRAVIA_API_URL=${BRAVIA_API_URL:-http://localhost:3001/api/v1}
+      - FIRETV_HDMI_PORT=${FIRETV_HDMI_PORT:-}
     restart: unless-stopped
 
   ui:

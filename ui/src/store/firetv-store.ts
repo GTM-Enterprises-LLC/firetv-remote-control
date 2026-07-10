@@ -12,6 +12,7 @@ interface FireTVStore {
   error: string | null;
 
   connect: () => Promise<void>;
+  wake: () => Promise<void>;
   fetchStatus: () => Promise<void>;
   fetchDeviceInfo: () => Promise<void>;
   fetchNowPlaying: () => Promise<void>;
@@ -43,6 +44,26 @@ export const useFireTVStore = create<FireTVStore>((set, get) => ({
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Connection failed';
+      set({ isConnected: false, error: msg });
+    } finally {
+      set({ isConnecting: false });
+    }
+  },
+
+  wake: async () => {
+    if (get().isConnecting) return;
+    set({ isConnecting: true, error: null });
+    try {
+      const res = await fireTVApi.wake();
+      set({ isConnected: res.data.connected, deviceIp: res.data.deviceIp });
+      if (res.data.connected) {
+        get().fetchDeviceInfo();
+        get().fetchNowPlaying();
+      } else {
+        set({ error: 'Could not wake the FireTV. Check that HDMI-CEC / device control is enabled on it.' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Wake failed';
       set({ isConnected: false, error: msg });
     } finally {
       set({ isConnecting: false });

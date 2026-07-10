@@ -6,9 +6,11 @@ dotenv.config({ path: ['.env', '../.env'] });
 const envSchema = z.object({
   PORT: z.string().default('3001').transform(Number),
   FIRETV_IP: z.string().min(1, 'FIRETV_IP is required'),
-  FIRETV_MAC: z.string().optional(),
   CORS_ORIGIN: z.string().default('*'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Wake the FireTV via the Bravia over HDMI-CEC (WiFi-only FireTV can't use WoL)
+  BRAVIA_API_URL: z.string().default('http://localhost:3001/api/v1'),
+  FIRETV_HDMI_PORT: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

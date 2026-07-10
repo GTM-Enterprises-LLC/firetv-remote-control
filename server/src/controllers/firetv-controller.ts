@@ -15,9 +15,15 @@ export class FireTVController {
   };
 
   postConnect = async (_req: Request, res: Response): Promise<void> => {
-    // Sends a Wake-on-LAN magic packet if the device is asleep, then polls
-    // for ADB to come up before reporting status.
-    const connected = await this.service.connectWithWake();
+    // Fast single connect attempt (no long wake-poll). Use /wake to bring an
+    // asleep FireTV up via the Bravia over HDMI-CEC.
+    const connected = await this.service.connect();
+    this.ok(res, { connected, deviceIp: getConfig().deviceIp });
+  };
+
+  postWake = async (_req: Request, res: Response): Promise<void> => {
+    // Wake the FireTV via the Bravia over HDMI-CEC, then report connection.
+    const connected = await this.service.wakeViaBravia();
     this.ok(res, { connected, deviceIp: getConfig().deviceIp });
   };
 
